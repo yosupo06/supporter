@@ -73,7 +73,7 @@ fn build(src: &Path) {
     let mut process = Command::new(env::var_os("CXX").unwrap_or(OsString::from("g++")))
         .arg("-std=c++17")
         // warnings
-        .args(&["-Wall", "-Wextra", "-Wshadow", "-Wconversion"])
+        .args(&["-Wall", "-Wextra", "-Wshadow", "-Wconversion", "-Wno-sign-conversion"])
         // debug, sanitize
         .arg("-g")
         .arg("-fsanitize=address,undefined")
