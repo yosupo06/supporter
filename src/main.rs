@@ -13,7 +13,7 @@ use std::ffi::OsString;
 use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::time::Instant;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -84,6 +84,7 @@ fn build(src: &Path) {
         .arg("-g")
         .arg("-fsanitize=address,undefined")
         .arg("-fno-omit-frame-pointer")
+        .arg("-DLOCAL")
         // include
         .args(&["-I", algpath().join("src").to_str().unwrap()])
         // output, source
@@ -193,6 +194,7 @@ fn test(dir: &str, test: &str) {
         let start = Instant::now();
         let command = Command::new(bin)
             .stdin(File::open(f).expect("Fail input"))
+            .stderr(Stdio::inherit())
             .output()
             .expect("Fail to compile");
         let end = start.elapsed();
