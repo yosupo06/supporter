@@ -5,7 +5,6 @@ extern crate glob;
 extern crate serde_derive;
 extern crate toml;
 
-use std::time::Instant;
 use clap::{App, Arg, SubCommand};
 use env_logger;
 use log::{info, warn};
@@ -15,6 +14,7 @@ use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Instant;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Info {
@@ -55,7 +55,7 @@ exit(1)
             pdir.join("main.cpp"),
         )
         .expect("Copy main.cpp");
-        fs::create_dir(pdir.join("test")).expect("Create test dir");
+        fs::create_dir(pdir.join("ourtest")).expect("Create test dir");
     }
     let info = Info {
         contest_url: Some(url.to_string()),
@@ -73,7 +73,13 @@ fn build(src: &Path) {
     let mut process = Command::new(env::var_os("CXX").unwrap_or(OsString::from("g++")))
         .arg("-std=c++17")
         // warnings
-        .args(&["-Wall", "-Wextra", "-Wshadow", "-Wconversion", "-Wno-sign-conversion"])
+        .args(&[
+            "-Wall",
+            "-Wextra",
+            "-Wshadow",
+            "-Wconversion",
+            "-Wno-sign-conversion",
+        ])
         // debug, sanitize
         .arg("-g")
         .arg("-fsanitize=address,undefined")
@@ -132,13 +138,18 @@ problem = sys.argv[2]
 contest = onlinejudge.dispatch.contest_from_url(url)
 if not contest:
     sys.exit(1)
-for p in contest.list_problems():
+list = contest.list_problems()
+for p in list:
     purl = p.get_url()
     if purl.lower().endswith(problem.lower()):
         print(purl)
         sys.exit(0)
-else:
-    sys.exit(1)    
+if len(problem) == 1:
+    id = ord(problem.lower()) - ord('a')
+    if id < len(list):
+        print(list[id].get_url())
+        sys.exit(0)
+sys.exit(1)    
     ";
 
     let result = Command::new("python3")
@@ -148,6 +159,7 @@ else:
         .output()
         .expect("Fail to expand");
     if !result.status.success() {
+        warn!("Failed to get url: {} {}", url, problem);
         return None;
     }
     match String::from_utf8(result.stdout) {
@@ -214,13 +226,12 @@ fn command_test(matches: &clap::ArgMatches) {
         toml::from_str(&fs::read_to_string("info.toml").expect("Fail to read info.toml"))
             .expect("Fail to read toml");
     if let Some(url) = info.contest_url {
-        let test_dir = PathBuf::from(dir).join("test-oj");
+        let test_dir = PathBuf::from(dir).join("test");
         if !test_dir.exists() {
             info!("download: {}", url);
             let status = Command::new("oj")
                 .current_dir(dir)
                 .arg("d")
-                .args(&["-d", "test-oj"])
                 .arg(get_url(&url, dir).expect("fail to get url"))
                 .spawn()
                 .expect("Fail to expand")
@@ -230,18 +241,17 @@ fn command_test(matches: &clap::ArgMatches) {
                 warn!("Failed to download case");
             }
         }
-        test(dir, "test-oj")
+        test(dir, "test")
     }
-    test(dir, "test");
+    test(dir, "ourtest");
 }
 
-fn command_submit(matches: &clap::ArgMatches) {
-    let dir = matches.value_of("problem").unwrap();
-    let info: Info =
-        toml::from_str(&fs::read_to_string("info.toml").expect("Fail to read info.toml"))
-            .expect("Fail to read toml");
-    let combined = PathBuf::from(dir).join("main_combined.cpp");
-    let combined = combined.to_str().expect("fail");
+fn combine(src: &Path) {
+    let mut out_src = PathBuf::from(src);
+    out_src.set_file_name(format!(
+        "{}_combined.cpp",
+        out_src.file_stem().expect("fail").to_str().unwrap()
+    ));
     let status = Command::new(
         algpath()
             .join("expander")
@@ -249,13 +259,25 @@ fn command_submit(matches: &clap::ArgMatches) {
             .to_str()
             .expect("fail"),
     )
-    .arg(PathBuf::from(dir).join("main.cpp").to_str().expect("fail"))
-    .arg(combined)
+    .arg(src)
+    .arg(out_src)
     .spawn()
     .expect("Fail to expand")
     .wait()
     .expect("Fail to expand");
     assert!(status.success());
+}
+
+fn command_submit(matches: &clap::ArgMatches) {
+    let dir = matches.value_of("problem").unwrap();
+    if !Path::new(dir).is_dir() {
+        combine(&Path::new(dir));
+        return;
+    }
+    let info: Info =
+        toml::from_str(&fs::read_to_string("info.toml").expect("Fail to read info.toml"))
+            .expect("Fail to read toml");
+    combine(&PathBuf::from(dir).join("main.cpp"));
     if let Some(url) = info.contest_url {
         info!("submit: {}", url);
         Command::new("oj")
