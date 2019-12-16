@@ -134,7 +134,7 @@ fn get_url(url: &str, problem: &str) -> Option<String> {
     let code = "
 import sys
 import onlinejudge
-url = sys.argv[1]    
+url = sys.argv[1]
 problem = sys.argv[2]
 contest = onlinejudge.dispatch.contest_from_url(url)
 if not contest:
@@ -153,22 +153,20 @@ if len(problem) == 1:
 sys.exit(1)    
     ";
 
-/*    let result = Command::new("python3")
+    let result = Command::new("python3")
         .args(&["-c", code])
         .arg(url)
         .arg(problem)
         .output()
-        .expect("Fail to expand");*/
-    let result = format!("https://atcoder.jp/contests/nikkei2019-2-final/tasks/nikkei2019_2_final_{}", problem);
-    Some(result)
-    //if !result.status.success() {
-    //    warn!("Failed to get url: {} {}", url, problem);
-    //    return None;
-    //}
-    //match String::from_utf8(result.stdout) {
-    //    Ok(v) => Some(v),
-    //    Err(_) => None,
-    //}
+        .expect("Fail to expand");
+    if !result.status.success() {
+       warn!("Failed to get url: {} {}", url, problem);
+       return None;
+    }
+    match String::from_utf8(result.stdout) {
+       Ok(v) => Some(v),
+       Err(_) => None,
+    }
 }
 
 fn test(dir: &str, test: &str) {
