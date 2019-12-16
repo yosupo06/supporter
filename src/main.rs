@@ -134,12 +134,15 @@ fn get_url(url: &str, problem: &str) -> Option<String> {
     let code = "
 import sys
 import onlinejudge
+import onlinejudge._implementation.utils as utils
+
 url = sys.argv[1]
 problem = sys.argv[2]
 contest = onlinejudge.dispatch.contest_from_url(url)
 if not contest:
     sys.exit(1)
-list = contest.list_problems()
+with utils.with_cookiejar(utils.new_session_with_our_user_agent(), path=utils.default_cookie_path) as sess:
+    list = contest.list_problems(session=sess)
 for p in list:
     purl = p.get_url()
     if purl.lower().endswith(problem.lower()):
