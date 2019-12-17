@@ -24,13 +24,17 @@ struct Info {
 fn command_init(matches: &clap::ArgMatches) {
     let url = matches.value_of("url").unwrap();
     let problems = matches.values_of("problems").unwrap();
+    info!("init: {:?} {:?}", url, problems);
     let code = "
 import sys
 import onlinejudge
 
 contest = onlinejudge.dispatch.contest_from_url(sys.argv[1])
 if isinstance(contest, onlinejudge.service.atcoder.AtCoderContest):
-    print('atcoder-' + contest.contest_id)
+    print('atcoder-{}'.format(contest.contest_id))
+    exit(0)
+if isinstance(contest, onlinejudge.service.codeforces.CodeforcesContest):
+    print('codeforces-{}'.format(contest.contest_id))
     exit(0)
 exit(1)
     ";
