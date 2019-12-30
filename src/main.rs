@@ -132,6 +132,11 @@ fn check_diff(actual: &str, expect: &str) -> bool {
         }
         return false;
     }
+    for actual_line in actual_lines {
+        if actual_line.trim_end().len() > 0 {
+            return false;
+        }
+    }
     return true;
 }
 fn get_url(url: &str, problem: &str) -> Option<String> {
