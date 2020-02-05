@@ -1,30 +1,46 @@
-extern crate clap;
-extern crate dirs;
-extern crate glob;
+mod util;
+
 #[macro_use]
 extern crate serde_derive;
-extern crate toml;
 
+use url::{Url};
 use clap::{App, Arg, SubCommand};
 use env_logger;
+use failure::{format_err, Error};
 use log::{info, warn};
 use std::env;
 use std::ffi::OsString;
 use std::fs;
 use std::fs::File;
+use std::os::unix::process::CommandExt;
+use std::io::{stdout, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Instant;
+use util::*;
 
-#[derive(Debug, Deserialize, Serialize)]
-struct Info {
-    contest_url: Option<String>,
+fn problem_init(pdir: &Path, contest_url: &Option<String>) -> Result<(), Error> {
+    info!("init problem: {:?}", pdir);
+    info!("make problem dir");
+    fs::create_dir(&pdir)?;
+    fs::copy(
+        algpath().join("src").join("base.cpp"), // TODO: default source path
+        pdir.join("main.cpp"),
+    )?;
+    fs::create_dir(pdir.join("ourtest"))?;
+    let info = Info {
+        contest_url: contest_url.clone(),
+        problem_url: None,
+    };
+    let toml = toml::to_string(&info)?;
+    fs::write(pdir.join("info.toml"), toml)?;
+    Ok(())
 }
 
-fn command_init(matches: &clap::ArgMatches) {
+fn command_init(matches: &clap::ArgMatches) -> Result<(), Error> {
     let url = matches.value_of("url").unwrap();
     let problems = matches.values_of("problems").unwrap();
-    info!("init: {:?} {:?}", url, problems);
+    info!("contest init: {:?} {:?}", url, problems);
     let code = "
 import sys
 import onlinejudge
@@ -38,43 +54,33 @@ if isinstance(contest, onlinejudge.service.codeforces.CodeforcesContest):
     exit(0)
 exit(1)
     ";
-
-    let result = Command::new("python3")
-        .args(&["-c", code])
-        .arg(url)
-        .output()
-        .expect("Fail to expand");
-    let dir = String::from_utf8(result.stdout).expect("Fail to get dir");
+    let (dir, url) = if Url::parse(url).is_ok() {
+        let result = Command::new("python3")
+            .args(&["-c", code])
+            .arg(url)
+            .output()?;
+        (String::from_utf8(result.stdout)?, Some(String::from(url)))
+    } else {
+        info!("Offline contest");
+        (String::from(url), None)
+    };
     let dir = dir.trim();
     assert!(dir != "");
-    info!("base dir: {}", dir);
     let dir = PathBuf::from(dir);
-    fs::create_dir(&dir).expect("Fail make dir");
+    info!("contest dir: {:?}", dir);
+    fs::create_dir(&dir)?;
     for prob in problems {
         let pdir = dir.clone().join(prob);
-        info!("make: {:?}", pdir);
-        fs::create_dir(&pdir).expect("Create problem dir");
-        fs::copy(
-            algpath().join("src").join("base.cpp"),
-            pdir.join("main.cpp"),
-        )
-        .expect("Copy main.cpp");
-        fs::create_dir(pdir.join("ourtest")).expect("Create test dir");
+        problem_init(&pdir, &url)?;
     }
-    let info = Info {
-        contest_url: Some(url.to_string()),
-    };
-    let toml = toml::to_string(&info).unwrap();
-    fs::write(dir.join("info.toml"), toml).expect("write toml");
+    Ok(())
 }
 
-fn algpath() -> PathBuf {
-    dirs::home_dir().unwrap().join("Programs").join("Algorithm")
-}
-
-fn build(src: &Path) {
+fn build(src: &Path, opt: bool) -> Result<(), Error> {
     info!("build: {:?}", src);
-    let mut process = Command::new(env::var_os("CXX").unwrap_or(OsString::from("g++")))
+    let cxx = env::var_os("CXX").unwrap_or(OsString::from("g++"));
+    let mut process = Command::new(cxx);
+    process
         .arg("-std=c++17")
         // warnings
         .args(&[
@@ -84,11 +90,19 @@ fn build(src: &Path) {
             "-Wconversion",
             "-Wno-sign-conversion",
         ])
-        // debug, sanitize
         .arg("-g")
-        .arg("-fsanitize=address,undefined")
-        .arg("-fno-omit-frame-pointer")
-        .arg("-DLOCAL")
+        .arg("-DLOCAL");
+    
+    if !opt {
+        // debug, sanitize
+        process
+            .arg("-fsanitize=address,undefined")
+            .arg("-fno-omit-frame-pointer")
+    } else {
+        info!("opt build");
+        process.arg("-O2")
+    };
+    let process = process
         // include
         .args(&["-I", algpath().join("src").to_str().unwrap()])
         // output, source
@@ -101,22 +115,34 @@ fn build(src: &Path) {
                 .unwrap(),
         ])
         .arg(src.as_os_str().to_str().unwrap())
-        .spawn()
-        .expect("Fail to compile");
-    let status = process.wait().expect("Failed to compile");
-    assert!(status.success());
+        .spawn()?
+        .wait()?;
+    if !process.success() {
+        Err(format_err!("Failed to compile"))
+    } else {
+        Ok(())
+    }
 }
 
-fn command_build(matches: &clap::ArgMatches) {
+fn command_build(matches: &clap::ArgMatches) -> Result<(), Error> {
     let src = matches.value_of("source").unwrap();
-    let path = PathBuf::from(src);
-    let path = if path.is_dir() {
-        path.join("main.cpp")
-    } else {
-        path
-    };
-    info!("{:?}", path);
-    build(path.as_path());
+    let opt = matches.is_present("opt");
+    match source(Path::new(&src)) {
+        Some(src) => build(&src, opt),
+        None => Err(format_err!("No source file")),
+    }
+}
+
+fn command_run(matches: &clap::ArgMatches) -> Result<(), Error> {
+    let src = matches.value_of("source").unwrap();
+    let opt = matches.is_present("opt");
+    match source(Path::new(&src)) {
+        Some(src) => build(&src, opt)?,
+        None => return Err(format_err!("No source file")),
+    }
+    let bin = fs::canonicalize(PathBuf::from(src).join("main"))?;
+    Command::new(bin).exec();
+    Err(format_err!("Failed to exec"))
 }
 
 fn check_diff(actual: &str, expect: &str) -> bool {
@@ -172,23 +198,21 @@ sys.exit(1)
         .output()
         .expect("Fail to expand");
     if !result.status.success() {
-       warn!("Failed to get url: {} {}", url, problem);
-       return None;
+        warn!("Failed to get url: {} {}", url, problem);
+        return None;
     }
     match String::from_utf8(result.stdout) {
-       Ok(v) => Some(v),
-       Err(_) => None,
+        Ok(v) => Some(v),
+        Err(_) => None,
     }
 }
 
-fn test(dir: &str, test: &str) {
-    let test_dir = PathBuf::from(dir).join(test);
+fn test(dir: &Path, test_dir: &Path) -> Result<(), Error> {
     if !test_dir.exists() {
-        info!("No test dir: {:?}", test_dir);
-        return;
+        return Err(format_err!("No test dir: {:?}", test_dir));
     }
     let mut files = Vec::<PathBuf>::new();
-    for entry in fs::read_dir(PathBuf::from(dir).join(test)).unwrap() {
+    for entry in fs::read_dir(test_dir).unwrap() {
         let entry = entry.unwrap();
         let path: PathBuf = entry.path();
         if let Some(ext) = path.extension() {
@@ -200,15 +224,14 @@ fn test(dir: &str, test: &str) {
     files.sort();
     for f in files {
         info!("test: {:?}", f);
-        let bin = fs::canonicalize(PathBuf::from(dir).join("main")).expect("Fail");
+        let bin = fs::canonicalize(PathBuf::from(dir).join("main"))?;
         let mut output = f.clone();
         output.set_file_name(format!("{}.out", f.file_stem().unwrap().to_str().unwrap()));
         let start = Instant::now();
         let command = Command::new(bin)
-            .stdin(File::open(f).expect("Fail input"))
+            .stdin(File::open(f)?)
             .stderr(Stdio::inherit())
-            .output()
-            .expect("Fail to compile");
+            .output()?;
         let end = start.elapsed();
         let actual = String::from_utf8(command.stdout).unwrap();
         match fs::read_to_string(output) {
@@ -219,6 +242,7 @@ fn test(dir: &str, test: &str) {
                     print!("{}", actual);
                     println!("=== expect: ===");
                     print!("{}", expect);
+                    stdout().flush().unwrap();
                 } else {
                     info!("AC");
                 }
@@ -227,84 +251,72 @@ fn test(dir: &str, test: &str) {
                 info!("No answer file");
                 println!("=== output: ===");
                 print!("{}", actual);
+                stdout().flush()?;
             }
         }
         info!("Time: {} ms", end.as_millis())
     }
+    Ok(())
 }
-fn command_test(matches: &clap::ArgMatches) {
-    let dir = matches.value_of("problem").unwrap();
-    build(PathBuf::from(dir).join("main.cpp").as_path());
+fn command_test(matches: &clap::ArgMatches) -> Result<(), Error> {
+    let pdir = matches.value_of("problem").unwrap();
+    let opt = matches.is_present("opt");
+    let pdir = PathBuf::from(pdir);
+    let pname = pdir.file_name().unwrap().to_str().unwrap();
 
-    let info: Info =
-        toml::from_str(&fs::read_to_string("info.toml").expect("Fail to read info.toml"))
-            .expect("Fail to read toml");
+    build(pdir.join("main.cpp").as_path(), opt)?;
+
+    let info: Info = toml::from_str(&fs::read_to_string(pdir.join("info.toml"))?)?;
     if let Some(url) = info.contest_url {
-        let test_dir = PathBuf::from(dir).join("test");
+        let test_dir = pdir.join("test");
         if !test_dir.exists() {
             info!("download: {}", url);
             let status = Command::new("oj")
-                .current_dir(dir)
+                .current_dir(&pdir)
                 .arg("d")
-                .arg(get_url(&url, dir).expect("fail to get url"))
-                .spawn()
-                .expect("Fail to expand")
-                .wait()
-                .expect("Fail to expand");
+                .arg(get_url(&url, pname).expect("Get problem url"))
+                .spawn()?
+                .wait()?;
             if !status.success() {
                 warn!("Failed to download case");
             }
         }
-        test(dir, "test")
+        test(&pdir, &pdir.join("test"))?;
     }
-    test(dir, "ourtest");
+    test(&pdir, &pdir.join("ourtest"))
 }
 
-fn combine(src: &Path) {
-    let mut out_src = PathBuf::from(src);
-    out_src.set_file_name(format!(
-        "{}_combined.cpp",
-        out_src.file_stem().expect("fail").to_str().unwrap()
-    ));
-    let status = Command::new(
-        algpath()
-            .join("expander")
-            .join("expander.py")
-            .to_str()
-            .expect("fail"),
-    )
-    .arg(src)
-    .arg(out_src)
-    .spawn()
-    .expect("Fail to expand")
-    .wait()
-    .expect("Fail to expand");
-    assert!(status.success());
-}
-
-fn command_submit(matches: &clap::ArgMatches) {
-    let dir = matches.value_of("problem").unwrap();
-    if !Path::new(dir).is_dir() {
-        combine(&Path::new(dir));
-        return;
+fn command_submit(matches: &clap::ArgMatches) -> Result<(), Error> {
+    let pdir = matches.value_of("problem").unwrap();
+    let pdir = PathBuf::from(pdir);
+    let out_src = match source(Path::new(&pdir)) {
+        Some(src) => combine(&src)?,
+        None => return Err(format_err!("No source file")),
+    };
+    if matches.is_present("clip") {
+        info!("copy to clipboard");
+        Command::new("pbcopy")
+            .stdin(File::open(&out_src)?)
+            .spawn()?
+            .wait()?;
     }
-    let info: Info =
-        toml::from_str(&fs::read_to_string("info.toml").expect("Fail to read info.toml"))
-            .expect("Fail to read toml");
-    combine(&PathBuf::from(dir).join("main.cpp"));
+    if !online(&pdir)? {
+        return Ok(());
+    }
+    let info: Info = toml::from_str(&fs::read_to_string(pdir.join("info.toml"))?)?;
+    combine(&pdir.join("main.cpp"))?;
     if let Some(url) = info.contest_url {
         info!("submit: {}", url);
         Command::new("oj")
-            .current_dir(dir)
+            .current_dir(&pdir)
             .arg("s")
             .arg("--no-open")
             .args(&["-w", "0"])
             .arg("main_combined.cpp")
-            .spawn()
-            .expect("Fail to expand")
-            .wait()
-            .expect("Fail to expand");
+            .spawn()?
+            .wait()?;
     }
+    Ok(())
 }
 
 fn main() {
@@ -313,10 +325,10 @@ fn main() {
         .format_timestamp(None)
         .format_module_path(false)
         .init();
-    let app = App::new("clapex")
+    let app = App::new("supporter")
         .subcommand(
             SubCommand::with_name("i")
-                .about("init")
+                .about("contest init")
                 .arg(Arg::with_name("url").help("url").required(true))
                 .arg(
                     Arg::with_name("problems")
@@ -328,29 +340,41 @@ fn main() {
         .subcommand(
             SubCommand::with_name("b")
                 .about("build")
-                .arg(Arg::with_name("source").help("source").required(true)),
+                .arg(Arg::with_name("source").help("source").required(true))
+                .arg(Arg::with_name("opt").help("optimize").short("O")),
+        )
+        .subcommand(
+            SubCommand::with_name("r")
+                .about("run")
+                .arg(Arg::with_name("source").help("source").required(true))
+                .arg(Arg::with_name("opt").help("optimize").short("O")),
         )
         .subcommand(
             SubCommand::with_name("t")
                 .about("test")
-                .arg(Arg::with_name("problem").help("problem").required(true)),
+                .arg(Arg::with_name("problem").help("problem").required(true))
+                .arg(Arg::with_name("opt").help("optimize").short("O")),
         )
         .subcommand(
             SubCommand::with_name("s")
                 .about("submit")
-                .arg(Arg::with_name("problem").help("problem").required(true)),
+                .arg(Arg::with_name("problem").help("problem").required(true))
+                .arg(Arg::with_name("clip").help("copy to clipboard").short("c")),
         );
     let matches = app.get_matches();
     if let Some(ref matches) = matches.subcommand_matches("i") {
-        command_init(matches)
+        command_init(matches).expect("Contest init")
     }
     if let Some(ref matches) = matches.subcommand_matches("b") {
-        command_build(matches)
+        command_build(matches).expect("Build")
+    }
+    if let Some(ref matches) = matches.subcommand_matches("r") {
+        command_run(matches).expect("Run")
     }
     if let Some(ref matches) = matches.subcommand_matches("t") {
-        command_test(matches)
+        command_test(matches).expect("Test")
     }
     if let Some(ref matches) = matches.subcommand_matches("s") {
-        command_submit(matches)
+        command_submit(matches).expect("Submit")
     }
 }
