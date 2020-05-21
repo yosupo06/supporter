@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"text/template"
 
@@ -36,6 +37,13 @@ func init() {
 		log.SetLevel(log.DebugLevel)
 		log.Info("DEBUG MODE")
 	}
+
+	// check oj
+	if err := exec.Command("oj", "--version").Run(); err != nil {
+		log.Warn("oj is not installed, some functions cannot be used")
+	}
+
+	// read config.toml
 	tomlPath := os.Getenv("SUPPORTER_CONFIG")
 	if tomlPath == "" {
 		log.Fatal("Please set $SUPPORTER_CONFIG")
@@ -46,6 +54,7 @@ func init() {
 	if _, err := os.Stat(config.TemplateSrc); err != nil {
 		log.WithField("templateSrc", config.TemplateSrc).Fatalf("config.templateSrc is not exist")
 	}
+
 	var err error
 	config.CompileDebug, err = template.New("CompileDebug").Parse(config.CompileDebugStr)
 	if err != nil {
@@ -92,6 +101,15 @@ func getContestInfo(contestURL string) (ContestInfo, error) {
 		}
 		return ContestInfo{
 			ID:      path[2],
+			Offline: false,
+		}, nil
+	}
+	if u.Host == "codeforces.com" {
+		if path[1] != "contest" {
+			return ContestInfo{}, errors.New("Invalid URL of Codeforces")
+		}
+		return ContestInfo{
+			ID:      "codeforces-" + path[2],
 			Offline: false,
 		}, nil
 	}
