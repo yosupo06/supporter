@@ -47,7 +47,7 @@ supporter t agc043/A
 ### Submit Command
 
 ```
-supporter t agc043/A
+supporter s agc043/A
 ```
 
 - ただの`oj`のラッパー、(`config.toml`で設定していればbundleコマンドを走らせ、)ソースを提出する。
