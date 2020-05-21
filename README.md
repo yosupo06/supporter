@@ -48,6 +48,7 @@ supporter t agc043/A
 
 ```
 supporter s agc043/A
+supporter s agc043/A -c #クリップボードに提出コードをコピー, macでしか動かない気がする
 ```
 
 - ただの`oj`のラッパー、(`config.toml`で設定していればbundleコマンドを走らせ、)ソースを提出する。
