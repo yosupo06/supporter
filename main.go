@@ -145,6 +145,8 @@ func main() {
 		execInitCmd()
 	case buildCmd.FullCommand():
 		execBuildCmd()
+	case runCmd.FullCommand():
+		execRunCmd()
 	case testCmd.FullCommand():
 		execTestCmd()
 	case submitCmd.FullCommand():
