@@ -10,7 +10,7 @@
 
 - `config_template.toml`を好きな場所にコピーして、内容をいじる
 - コピーした`config_template.toml`のパスを`$SUPPORTER_CONFIG`に追加する
-  - 例: `.profile`とか`.bash_profile`に`export SUPPORTER_CONFIG="/absuolute/path/of/config_template.toml`
+  - 例: `.profile`とか`.bash_profile`に`export SUPPORTER_CONFIG="/absuolute/path/of/config_template.toml"`
 
 
 
@@ -47,7 +47,8 @@ supporter t agc043/A
 ### Submit Command
 
 ```
-supporter t agc043/A
+supporter s agc043/A
+supporter s agc043/A -c #クリップボードに提出コードをコピー, macでしか動かない気がする
 ```
 
 - ただの`oj`のラッパー、(`config.toml`で設定していればbundleコマンドを走らせ、)ソースを提出する。
