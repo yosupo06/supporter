@@ -37,7 +37,7 @@ func execSubmitCmd() {
 		log.Infof("Bundle: %v -> %v", src, newSrc)
 		log.WithField("Command", command).Debug("Compile Command")
 
-		cmd := exec.Command(command[0], command[1:]...)
+		cmd := exec.Command("bash", "-c", strings.Join(command, " "))
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
 			log.Fatal(err)

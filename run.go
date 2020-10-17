@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -22,6 +23,11 @@ func execRunCmd() {
 		log.Fatal(err)
 	}
 	bin := strings.TrimSuffix(source, path.Ext(source))
+	absBin, err := filepath.Abs(bin)
+	if err != nil {
+		log.Fatal("Failed to convert to absolute path: ", bin)
+	}
+	bin = absBin
 	cmd := exec.Command(bin)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

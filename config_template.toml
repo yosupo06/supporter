@@ -2,10 +2,10 @@
 template_src = "/Users/yosupo/Programs/Algorithm/src/base.cpp"
 
 # compile command(debug mode)
-compile_debug = "g++ {{.Source}} -o {{.Output}} -std=c++17 -g -DLOCAL"
+compile_debug = "{{.CXX}} {{.Source}} -o {{.Output}} -std=c++17 -g -DLOCAL"
 
 # compile command(release mode)
-compile_opt = "g++ {{.Source}} -o {{.Output}} -std=c++17 -O2"
+compile_opt = "{{.CXX}} {{.Source}} -o {{.Output}} -std=c++17 -O2"
 
 # if you want to use bundle command
 #bundle_source = "/Users/yosupo/Programs/Algorithm/expander/expander.py {{.Source}} {{.Output}}"

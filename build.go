@@ -29,20 +29,25 @@ func toSource(problem string) (string, error) {
 }
 
 func compile(problem string, opt bool) {
+	cxx := os.Getenv("CXX")
+	if cxx == "" {
+		cxx = "g++"
+	}
 	src, err := toSource(problem)
 	if err != nil {
 		log.Fatal(err)
 	}
 	output := strings.TrimSuffix(src, path.Ext(src))
-
 	commandStr := new(bytes.Buffer)
 	if !opt {
 		config.CompileDebug.Execute(commandStr, map[string]string{
+			"CXX":    cxx,
 			"Source": src,
 			"Output": output,
 		})
 	} else {
 		config.CompileOPT.Execute(commandStr, map[string]string{
+			"CXX":    cxx,
 			"Source": src,
 			"Output": output,
 		})
