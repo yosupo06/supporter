@@ -17,7 +17,13 @@ var (
 )
 
 func execRunCmd() {
-	compile(*runProblem, *runOpt)
+	config, err := readConfig(*runProblem)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	compile(config, *runProblem, *runOpt)
+
 	source, err := toSource(*runProblem)
 	if err != nil {
 		log.Fatal(err)

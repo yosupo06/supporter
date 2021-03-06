@@ -34,8 +34,13 @@ type OjAPIGetContest struct {
 	} `json:result`
 }
 
-func getProblemURL(config ProblemConfig) (string, error) {
+func getProblemURL(config *Config) (string, error) {
 	url := config.ContestURL
+	contest, err := getContestInfo(url)
+	if contest.Site == Other {
+		return "", nil
+	}
+
 	cmd := exec.Command("oj-api", "get-contest", url)
 	list, err := cmd.Output()
 	if err != nil {
@@ -103,20 +108,26 @@ func singleTest(binary, input, expectFile string) {
 	}
 }
 
-func fetchSample(dir string) error {
-	if _, err := os.Stat(path.Join(dir, "test")); err == nil {
-		log.Info("Testcase is already fetched")
-		return nil
-	}
-	config, err := getProblemConfig(path.Join(dir, "info.toml"))
+func fetchSample(config *Config, problem string) error {
+	dir, err := toSourceDir(problem)
 	if err != nil {
 		return err
+	}
+
+	if _, err := os.Stat(path.Join(dir, "test")); err == nil {
+		log.Info("Testcases are already fetched")
+		return nil
 	}
 
 	url, err := getProblemURL(config)
 	if err != nil {
 		return err
 	}
+	if url == "" {
+		log.Info("Unknown site, skip")
+		return nil
+	}
+
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		return err
@@ -129,20 +140,29 @@ func fetchSample(dir string) error {
 
 func execTestCmd() {
 	problem := *testProblem
-	source, err := toSource(problem)
+	config, err := readConfig(problem)
 	if err != nil {
 		log.Fatal(err)
 	}
-	compile(problem, *testOpt)
-	dir := problem
-	if stat, _ := os.Stat(dir); !stat.IsDir() {
-		dir = path.Dir(dir)
-	} else {
-		if err := fetchSample(dir); err != nil {
-			log.Warn("Failed to fetch sample: ", err)
-		}
+
+	// fetch sample
+	if err := fetchSample(config, problem); err != nil {
+		log.Fatal(err)
+	}
+
+	// compile
+	compile(config, problem, *testOpt)
+
+	dir, err := toSourceDir(problem)
+	if err != nil {
+		log.Fatal(err)
 	}
 	inFiles, err := filepath.Glob(dir + "/**/*.in")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	source, err := toSource(problem)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -17,33 +17,52 @@ var (
 	submitClip    = submitCmd.Flag("clip", "Clip to clipboard(OS X only?)").Short('c').Bool()
 )
 
-func execSubmitCmd() {
-	src, err := toSource(*submitProblem)
+func bundle(config *Config, problem string) (string, error) {
+	src, err := toSource(problem)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if config.BundleSource != nil {
-		ext := path.Ext(src)
-		newSrc := strings.TrimSuffix(src, ext) + ".out" + ext
-		commandStr := new(bytes.Buffer)
-		if err := config.BundleSource.Execute(commandStr, map[string]string{
-			"Source": src,
-			"Output": newSrc,
-		}); err != nil {
-			log.Fatal(err)
-		}
-		command := strings.Fields(commandStr.String())
 
-		log.Infof("Bundle: %v -> %v", src, newSrc)
-		log.WithField("Command", command).Debug("Compile Command")
-
-		cmd := exec.Command("bash", "-c", strings.Join(command, " "))
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			log.Fatal(err)
-		}
-		src = newSrc
+	if config.BundleSourceStr == "" {
+		return src, nil
 	}
+
+	ext := path.Ext(src)
+	newSrc := strings.TrimSuffix(src, ext) + ".out" + ext
+	log.Infof("Bundle: %v -> %v", src, newSrc)
+
+	commandBuff := new(bytes.Buffer)
+	if err := config.BundleSource.Execute(commandBuff, map[string]string{
+		"Source": src,
+		"Output": newSrc,
+	}); err != nil {
+		return "", err
+	}
+	command := strings.Fields(commandBuff.String())
+	log.WithField("Command", command).Debug("Bundle Command")
+
+	cmd := exec.Command("bash", "-c", strings.Join(command, " "))
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+	src = newSrc
+
+	return newSrc, nil
+}
+
+func execSubmitCmd() {
+	problem := *submitProblem
+	config, err := readConfig(problem)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	src, err := bundle(config, problem)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	srcFile, err := os.Open(src)
 	if err != nil {
 		log.Fatal(err)
@@ -57,24 +76,22 @@ func execSubmitCmd() {
 		}
 	}
 
-	config, err := getProblemConfig(path.Join(*submitProblem, "info.toml"))
-	if err != nil {
-		log.Fatal(err)
-	}
 	url, err := getProblemURL(config)
 	if err != nil {
 		log.Fatal(err)
 	}
-	absDir, err := filepath.Abs(*submitProblem)
-	if err != nil {
-		log.Fatal(err)
-	}
-	cmd := exec.Command("oj", "submit", url, path.Base(src), "--no-open", "-w", "0")
-	cmd.Dir = absDir
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		log.Fatal(err)
+	if url != "" {
+		absDir, err := filepath.Abs(*submitProblem)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cmd := exec.Command("oj", "submit", url, path.Base(src), "--no-open", "-w", "0")
+		cmd.Dir = absDir
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
