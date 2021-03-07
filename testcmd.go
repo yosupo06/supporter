@@ -128,6 +128,8 @@ func fetchSample(config *Config, problem string) error {
 		return nil
 	}
 
+	log.Infof("Fetch testcase from %v", url)
+
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		return err

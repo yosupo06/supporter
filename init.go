@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/BurntSushi/toml"
 )
@@ -57,7 +58,7 @@ func execInitCmd() {
 	log.Printf("Contest info: ID(%v)", info.ID)
 	dir := info.ID
 	if err := os.Mkdir(dir, 0755); err != nil {
-		log.Fatalf("error: Failed to create dir: %v", err)
+		log.Fatalf("Failed to create dir: %v", err)
 	}
 	for _, problem := range *initProblems {
 		if err := initProblem(dir, *initURL, problem, config); err != nil {

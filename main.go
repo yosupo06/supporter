@@ -25,9 +25,11 @@ func init() {
 	}
 
 	// check oj
-	if err := exec.Command("oj", "--version").Run(); err != nil {
-		log.Warn("oj is not installed, some functions cannot be used")
-	}
+	go func() {
+		if err := exec.Command("oj", "--version").Run(); err != nil {
+			log.Warn("oj is not installed, some functions cannot be used")
+		}
+	}()
 }
 
 func copyFile(src, trg string) error {
