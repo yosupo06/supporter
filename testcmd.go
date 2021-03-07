@@ -108,38 +108,6 @@ func singleTest(binary, input, expectFile string) {
 	}
 }
 
-func fetchSample(config *Config, problem string) error {
-	dir, err := toSourceDir(problem)
-	if err != nil {
-		return err
-	}
-
-	if _, err := os.Stat(path.Join(dir, "test")); err == nil {
-		log.Info("Testcases are already fetched")
-		return nil
-	}
-
-	url, err := getProblemURL(config)
-	if err != nil {
-		return err
-	}
-	if url == "" {
-		log.Info("Unknown site, skip")
-		return nil
-	}
-
-	log.Infof("Fetch testcase from %v", url)
-
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		return err
-	}
-	cmd := exec.Command("oj", "d", url)
-	cmd.Dir = absDir
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
 func execTestCmd() {
 	problem := *testProblem
 	config, err := readConfig(problem)
@@ -148,7 +116,7 @@ func execTestCmd() {
 	}
 
 	// fetch sample
-	if err := fetchSample(config, problem); err != nil {
+	if err := fetchSample(problem); err != nil {
 		log.Fatal(err)
 	}
 

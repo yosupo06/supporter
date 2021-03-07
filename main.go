@@ -11,10 +11,7 @@ import (
 )
 
 var (
-	app          = kingpin.New("supporter", "Contest support tool")
-	initCmd      = app.Command("i", "Init contest")
-	initURL      = initCmd.Arg("url", "Contest URL").Required().String()
-	initProblems = initCmd.Arg("problems", "Contest Problems").Required().Strings()
+	app = kingpin.New("supporter", "Contest support tool")
 )
 
 func init() {
@@ -49,6 +46,8 @@ func main() {
 		execInitCmd()
 	case buildCmd.FullCommand():
 		execBuildCmd()
+	case downloadCmd.FullCommand():
+		execDownloadCmd()
 	case runCmd.FullCommand():
 		execRunCmd()
 	case testCmd.FullCommand():

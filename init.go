@@ -10,6 +10,12 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+var (
+	initCmd      = app.Command("i", "Init contest")
+	initURL      = initCmd.Arg("url", "Contest URL").Required().String()
+	initProblems = initCmd.Arg("problems", "Contest Problems").Required().Strings()
+)
+
 func initProblem(dir string, contestURL string, id string, config *Config) error {
 	pdir := path.Join(dir, id)
 	if err := os.Mkdir(pdir, 0755); err != nil {

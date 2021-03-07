@@ -60,41 +60,48 @@ func parentDirs(path string) (dirs []string, err error) {
 	return
 }
 
-func readConfig(path string) (config *Config, err error) {
-	config = &Config{}
-	err = nil
+var memoizedConfig = make(map[string]*Config)
 
-	var dirs []string
-	if dirs, err = parentDirs(path); err != nil {
-		return
+func readConfig(path string) (*Config, error) {
+	if val, ok := memoizedConfig[path]; ok {
+		log.WithField("path", path).Debug("Already read, skip")
+		return val, nil
+	}
+
+	config := &Config{}
+	dirs, err := parentDirs(path)
+	if err != nil {
+		return nil, err
 	}
 
 	for i := 0; i < len(dirs); i++ {
 		// read config.toml
 		tomlPath := filepath.Join(dirs[len(dirs)-1-i], "config_supporter.toml")
-		if _, err2 := os.Stat(tomlPath); err2 != nil {
+		if _, err := os.Stat(tomlPath); err != nil {
 			continue
 		}
-		if _, err = toml.DecodeFile(tomlPath, config); err != nil {
-			return
+		if _, err := toml.DecodeFile(tomlPath, config); err != nil {
+			return nil, err
 		}
 	}
 
 	config.CompileDebug, err = template.New("CompileDebug").Parse(config.CompileDebugStr)
 	if err != nil {
-		return
+		return nil, err
 	}
 	config.CompileOPT, err = template.New("CompileOPT").Parse(config.CompileOPTStr)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	config.BundleSource, err = template.New("BundleSource").Parse(config.BundleSourceStr)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	log.WithField("config", config).WithField("path", path).Debug("Read Config")
 
-	return
+	memoizedConfig[path] = config
+
+	return config, nil
 }
