@@ -81,11 +81,15 @@ func execSubmitCmd() {
 		log.Fatal(err)
 	}
 	if url != "" {
-		absDir, err := filepath.Abs(*submitProblem)
+		dir, err := toSourceDir(*submitProblem)
 		if err != nil {
 			log.Fatal(err)
 		}
-		cmd := exec.Command("oj", "submit", url, path.Base(src), "--no-open", "-w", "0")
+		absDir, err := filepath.Abs(dir)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cmd := exec.Command("oj", "submit", url, path.Base(src), "--no-open", "-w", "0", "--yes")
 		cmd.Dir = absDir
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
