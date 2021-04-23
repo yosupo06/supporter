@@ -13,6 +13,8 @@ import (
 type Config struct {
 	// Path of template code
 	TemplateSrc string `toml:"template_src,omitempty"`
+	// Template files for contest
+	ContestTemplate []string `toml:"contest_template,omitempty"`
 
 	// Compile command(debug mode)
 	CompileDebugStr string `toml:"compile_debug,omitempty"`

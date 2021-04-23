@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/otiai10/copy"
 )
 
 var (
@@ -65,6 +68,13 @@ func execInitCmd() {
 	dir := info.ID
 	if err := os.Mkdir(dir, 0755); err != nil {
 		log.Fatalf("Failed to create dir: %v", err)
+	}
+	log.WithField("files", config.ContestTemplate).Debug("Copy contest template")
+	for _, path := range config.ContestTemplate {
+		name := filepath.Base(path)
+		if err := copy.Copy(path, filepath.Join(dir, name)); err != nil {
+			log.Fatal(err)
+		}
 	}
 	for _, problem := range *initProblems {
 		if err := initProblem(dir, *initURL, problem, config); err != nil {
