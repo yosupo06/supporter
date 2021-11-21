@@ -27,6 +27,9 @@ type Config struct {
 	BundleSourceStr string `toml:"bundle_source,omitempty"`
 	BundleSource    *template.Template
 
+	// PBCopy command
+	PBCopy string `toml:"pbcopy,omitempty"`
+
 	// Contest URL
 	ContestURL string `toml:"contest_url,omitempty"`
 	// Problem ID
@@ -95,7 +98,6 @@ func readConfig(path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	config.BundleSource, err = template.New("BundleSource").Parse(config.BundleSourceStr)
 	if err != nil {
 		return nil, err

@@ -22,7 +22,9 @@ func execRunCmd() {
 		log.Fatal(err)
 	}
 
-	compile(config, *runProblem, *runOpt)
+	if err := compile(config, *runProblem, *runOpt); err != nil {
+		log.Fatal(err)
+	}
 
 	source, err := toSource(*runProblem)
 	if err != nil {

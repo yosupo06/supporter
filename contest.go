@@ -21,6 +21,9 @@ type ContestInfo struct {
 }
 
 func getContestInfo(contestURL string) (ContestInfo, error) {
+	if contestURL == "" {
+		return ContestInfo{}, errors.New("contest URL is empty")
+	}
 	u, err := url.Parse(contestURL)
 	if err != nil {
 		return ContestInfo{}, err

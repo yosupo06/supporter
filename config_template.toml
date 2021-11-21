@@ -9,3 +9,6 @@ compile_opt = "{{.CXX}} {{.Source}} -o {{.Output}} -std=c++17 -O2"
 
 # if you want to use bundle command
 #bundle_source = "/Users/yosupo/Programs/Algorithm/expander/expander.py {{.Source}} {{.Output}}"
+
+# command which store stdin into clipboard
+#pbcopy = "clip.exe"

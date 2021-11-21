@@ -20,6 +20,7 @@ var (
 	testCmd     = app.Command("t", "Test source")
 	testProblem = testCmd.Arg("problem", "Problem").Required().String()
 	testOpt     = testCmd.Flag("opt", "Opt").Short('O').Bool()
+	testLocal   = testCmd.Flag("local", "Lpt").Short('l').Bool()
 )
 
 func checkDiff(actual, expect string) bool {
@@ -42,6 +43,7 @@ func getProblemURL(config *Config) (string, error) {
 	}
 
 	cmd := exec.Command("oj-api", "get-contest", url)
+	cmd.Stderr = os.Stderr
 	list, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -116,12 +118,16 @@ func execTestCmd() {
 	}
 
 	// fetch sample
-	if err := fetchSample(problem); err != nil {
-		log.Fatal(err)
+	if !*testLocal {
+		if err := fetchSample(problem); err != nil {
+			log.Fatal("failed to fetch sample: ", err)
+		}
 	}
 
 	// compile
-	compile(config, problem, *testOpt)
+	if err := compile(config, problem, *testOpt); err != nil {
+		log.Fatal(err)
+	}
 
 	dir, err := toSourceDir(problem)
 	if err != nil {

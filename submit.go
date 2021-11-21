@@ -69,18 +69,24 @@ func execSubmitCmd() {
 	}
 	if *submitClip {
 		log.Info("Copy to clipboard")
-		cmd := exec.Command("pbcopy")
+		cmd := exec.Command(config.PBCopy)
 		cmd.Stdin = srcFile
 		if err := cmd.Run(); err != nil {
 			log.Error("Failed to copy: ", err)
 		}
 	}
 
-	url, err := getProblemURL(config)
+	info, err := getContestInfo(config.ContestURL)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to fetch info %v: %v", *initURL, err)
 	}
-	if url != "" {
+	log.Printf("Contest info: ID(%v)", info.ID)
+
+	if info.Site == AtCoder {
+		url, err := getProblemURL(config)
+		if err != nil {
+			log.Fatal(err)
+		}
 		dir, err := toSourceDir(*submitProblem)
 		if err != nil {
 			log.Fatal(err)
