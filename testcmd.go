@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -33,36 +31,6 @@ type OjAPIGetContest struct {
 			URL string `json:"url"`
 		} `json:"problems"`
 	} `json:result`
-}
-
-func getProblemURL(config *Config) (string, error) {
-	url := config.ContestURL
-	contest, err := getContestInfo(url)
-	if contest.Site == Other {
-		return "", nil
-	}
-
-	cmd := exec.Command("oj-api", "get-contest", url)
-	cmd.Stderr = os.Stderr
-	list, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	response := OjAPIGetContest{}
-	if err := json.Unmarshal(list, &response); err != nil {
-		return "", err
-	}
-	log.WithFields(log.Fields{
-		"rawResponse": string(list),
-		"response":    response,
-	}).Debug("OJ Response")
-	for _, problem := range response.Result.Problems {
-		c := problem.URL[len(problem.URL)-1:]
-		if strings.ToLower(c) == strings.ToLower(config.ProblemID) {
-			return problem.URL, nil
-		}
-	}
-	return "", errors.New("Cannot find URL")
 }
 
 func singleTest(binary, input, expectFile string) {

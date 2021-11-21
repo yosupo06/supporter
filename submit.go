@@ -83,7 +83,7 @@ func execSubmitCmd() {
 	log.Printf("Contest info: ID(%v)", info.ID)
 
 	if info.Site == AtCoder {
-		url, err := getProblemURL(config)
+		url, err := predictProblemURL(config.ContestURL, config.ProblemID)
 		if err != nil {
 			log.Fatal(err)
 		}

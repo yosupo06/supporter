@@ -30,7 +30,7 @@ func fetchSample(problem string) error {
 		return nil
 	}
 
-	url, err := getProblemURL(config)
+	url, err := predictProblemURL(config.ContestURL, config.ProblemID)
 	if err != nil {
 		return err
 	}
