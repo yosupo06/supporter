@@ -19,6 +19,7 @@ type ContestSite int
 const (
 	AtCoder ContestSite = iota
 	Codeforces
+	Codechef
 	Other
 )
 
@@ -46,7 +47,7 @@ func getContestInfo(contestURL string) (ContestInfo, error) {
 	path := strings.Split(u.Path, "/")
 	if u.Host == "atcoder.jp" {
 		if path[1] != "contests" {
-			return ContestInfo{}, errors.New("Invalid URL of AtCoder")
+			return ContestInfo{}, errors.New("invalid URL of AtCoder")
 		}
 		return ContestInfo{
 			Site:    AtCoder,
@@ -56,7 +57,7 @@ func getContestInfo(contestURL string) (ContestInfo, error) {
 	}
 	if u.Host == "codeforces.com" {
 		if path[1] != "contest" {
-			return ContestInfo{}, errors.New("Invalid URL of Codeforces")
+			return ContestInfo{}, errors.New("invalid URL of Codeforces")
 		}
 		return ContestInfo{
 			Site:    Codeforces,
@@ -64,7 +65,14 @@ func getContestInfo(contestURL string) (ContestInfo, error) {
 			Offline: false,
 		}, nil
 	}
-	return ContestInfo{}, errors.New("Unknown URL")
+	if u.Host == "www.codechef.com" {
+		return ContestInfo{
+			Site:    Codechef,
+			ID:      "codechef-" + path[1],
+			Offline: false,
+		}, nil
+	}
+	return ContestInfo{}, errors.New("unknown URL")
 }
 
 func predictOrder(problemID string) (int, error) {
@@ -73,7 +81,7 @@ func predictOrder(problemID string) (int, error) {
 	}
 
 	// normalize problemId
-	arr := strings.Split(problemID, "_")
+	arr := regexp.MustCompile("[/_]").Split(problemID, -1)
 	problemID = strings.ToLower(arr[len(arr)-1])
 
 	r := regexp.MustCompile("^[a-z]+$")
@@ -136,6 +144,6 @@ func predictProblemURL(contestURL string, problemID string) (string, error) {
 			}
 		}
 	}
-
+	log.Info(response.Result.Problems)
 	return "", fmt.Errorf("cannot find URL contest(%s), problem(%s)", contestURL, problemID)
 }

@@ -13,6 +13,10 @@ func TestPredictOrder(t *testing.T) {
 		t.Fatalf("order of typical90_ba is invalid: %v %v", ord, err)
 	}
 
+	if ord, err := predictOrder("https://codeforces.com/contest/1610/problem/D"); err != nil || ord != 3 {
+		t.Fatalf("order of codeforces/1610/D is invalid: %v %v", ord, err)
+	}
+
 	if ord, err := predictOrder("1"); err != nil || ord != 0 {
 		t.Fatalf("order of 1 is invalid: %v %v", ord, err)
 	}
