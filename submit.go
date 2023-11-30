@@ -74,34 +74,34 @@ func execSubmitCmd() {
 		if err := cmd.Run(); err != nil {
 			log.Error("Failed to copy: ", err)
 		}
-	}
+	} else {
+		info, err := getContestInfo(config.ContestURL)
+		if err != nil {
+			log.Fatalf("Failed to fetch info %v: %v", *initURL, err)
+		}
+		log.Printf("Contest info: ID(%v)", info.ID)
 
-	info, err := getContestInfo(config.ContestURL)
-	if err != nil {
-		log.Fatalf("Failed to fetch info %v: %v", *initURL, err)
-	}
-	log.Printf("Contest info: ID(%v)", info.ID)
-
-	if info.Site == AtCoder {
-		url, err := predictProblemURL(config.ContestURL, config.ProblemID)
-		if err != nil {
-			log.Fatal(err)
-		}
-		dir, err := toSourceDir(*submitProblem)
-		if err != nil {
-			log.Fatal(err)
-		}
-		absDir, err := filepath.Abs(dir)
-		if err != nil {
-			log.Fatal(err)
-		}
-		cmd := exec.Command("oj", "submit", url, path.Base(src), "--no-open", "-w", "0", "--yes")
-		cmd.Dir = absDir
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			log.Fatal(err)
+		if info.Site == AtCoder {
+			url, err := predictProblemURL(config.ContestURL, config.ProblemID)
+			if err != nil {
+				log.Fatal(err)
+			}
+			dir, err := toSourceDir(*submitProblem)
+			if err != nil {
+				log.Fatal(err)
+			}
+			absDir, err := filepath.Abs(dir)
+			if err != nil {
+				log.Fatal(err)
+			}
+			cmd := exec.Command("oj", "submit", url, path.Base(src), "--no-open", "-w", "0", "--yes")
+			cmd.Dir = absDir
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 }
