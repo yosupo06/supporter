@@ -64,11 +64,11 @@ func compile(config *Config, problem string, opt bool) error {
 		"Source": src,
 		"Output": output,
 	})
-	command := strings.Fields(commandBuff.String())
+	command := commandBuff.String()
 
 	log.WithField("Command", command).Debug("Compile Command")
 
-	cmd := exec.Command(command[0], command[1:]...)
+	cmd := exec.Command("/bin/bash", "-c", command)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("Failed to build: %v", err)

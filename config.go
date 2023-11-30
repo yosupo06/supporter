@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/BurntSushi/toml"
@@ -65,6 +66,17 @@ func parentDirs(path string) (dirs []string, err error) {
 	return
 }
 
+func normalizePath(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatal(err)
+		}
+		path = filepath.Join(home, path[2:])
+	}
+	return path
+}
+
 var memoizedConfig = make(map[string]*Config)
 
 func readConfig(path string) (*Config, error) {
@@ -88,6 +100,11 @@ func readConfig(path string) (*Config, error) {
 		if _, err := toml.DecodeFile(tomlPath, config); err != nil {
 			return nil, err
 		}
+	}
+
+	config.TemplateSrc = normalizePath(config.TemplateSrc)
+	for i := 0; i < len(config.ContestTemplate); i++ {
+		config.ContestTemplate[i] = normalizePath(config.ContestTemplate[i])
 	}
 
 	config.CompileDebug, err = template.New("CompileDebug").Parse(config.CompileDebugStr)
